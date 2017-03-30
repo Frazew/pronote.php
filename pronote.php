@@ -6,7 +6,7 @@
  * Dépendances : 
  * 	- openssl
  * 	- curl
- * 	
+ * 	- PHP 7.0+ ou random_compat (MIT)
  */
 /**
  * Notes :
@@ -50,6 +50,7 @@
  *	SOFTWARE.
  */
 
+require_once "random_compat.phar";
 
 /**
  * Classe principale
@@ -187,6 +188,7 @@ Class Pronote {
 		$this->RSA_exp = $params["ER"];
 		$this->requestCount = 1;
 		$this->userData = array();
+		$this->AESIV = Util::randomStr();
 
 		if ($autologin) $this->AES_key = $password;
 		else $this->AES_key = utf8_encode(strtolower($user) . $password);
@@ -200,7 +202,7 @@ Class Pronote {
 				"Uuid" => Crypto::encryptRSA($this->AESIV, $this->RSA_mod, $this->RSA_exp)
 			)
 		);		
-		$json = $this->makeRequest("FonctionParametres", $post, array("", ""), array("", ""), array("", ""));
+		$json = $this->makeRequest("FonctionParametres", $post, array("", ""), array("", ""), array("", $this->AESIV));
 
 		if ($json != null) {
 			if (isset($json["erreur"])) {
@@ -1140,7 +1142,9 @@ Class Util {
 	 * @return $len bytes générés pseudo-aléatoirement
 	 */
 	public static function randomStr($len = 16) {
-		return random_bytes($len);
+		$bytes = bin2hex(random_bytes($len));
+		if (isset($DEBUG) && $DEBUG = true) echo $bytes . "\n";
+		return $bytes;
 	}
 
 	/**
