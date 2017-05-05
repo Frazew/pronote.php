@@ -50,7 +50,9 @@
  *	SOFTWARE.
  */
 
-require_once "random_compat.phar";
+set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
+include_once dirname(__FILE__)."/random_compat.phar";
+require_once dirname(__FILE__)."/Crypt/RSA.php";
 
 /**
  * Classe principale
@@ -1117,7 +1119,6 @@ Class Crypto {
 	 * @return La chaîne cryptée selon les paramètres fournis, encodée en base64 et coupée tous les 64 bytes par deux caractères \r\n
 	 */
 	public static function encryptRSA($string, $mod, $exp) {
-		include_once("Crypt/RSA.php");
 		$rsa = new Crypt_RSA(); 
 		$rsa->loadKey(
 			array(
