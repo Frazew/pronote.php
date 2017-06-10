@@ -527,8 +527,9 @@ Class Pronote {
 		$json = json_decode(@$json_string, true);
 		if ($json != null) {
 			$notes = array();
-			$allNotes = [];
-			$allCoeffs = [];
+			$notes_coeffs = [];
+			$total = 0;
+
 			foreach ($json["ListeServices"]["Service"] as $matiere) {
 				if (isset($notes[$matiere["@attributes"]["L"]])) {
 					$notes[$matiere["@attributes"]["L"]]["prof"] .= " & " . $matiere["Professeur"]["@attributes"]["L"];
@@ -551,8 +552,11 @@ Class Pronote {
 						else {
 							$note = Util::tofloat($devoir["Note"]);
 							$count += Util::tofloat($devoir["Coefficient"]);
-							array_push($allNotes, ($note * 20 / Util::tofloat($devoir["Bareme"])));
-							array_push($allCoeffs, Util::tofloat($devoir["Coefficient"]));
+							$notes_coeffs[] = array(
+								"note" => ($note * 20 / Util::tofloat($devoir["Bareme"])),
+								"coeff" => Util::tofloat($devoir["Coefficient"])
+							);
+							$total += Util::tofloat($devoir["Coefficient"]);
 							$totalCoeff[] = Util::tofloat($devoir["Coefficient"]) * ($note * 20 / Util::tofloat($devoir["Bareme"]));
 						}
 
@@ -595,8 +599,11 @@ Class Pronote {
 					else {
 						$note = Util::tofloat($devoir["Note"]);
 						$count += Util::tofloat($devoir["Coefficient"]);
-						array_push($allNotes, ($note * 20 / Util::tofloat($devoir["Bareme"])));
-						array_push($allCoeffs, Util::tofloat($devoir["Coefficient"]));
+						$notes_coeffs[] = array(
+							"note" => ($note * 20 / Util::tofloat($devoir["Bareme"])),
+							"coeff" => Util::tofloat($devoir["Coefficient"])
+						);
+						$total += Util::tofloat($devoir["Coefficient"]);
 						$totalCoeff[] = Util::tofloat($devoir["Coefficient"]) * ($note * 20 / Util::tofloat($devoir["Bareme"]));
 					}
 
@@ -630,17 +637,14 @@ Class Pronote {
 				}
 			}
 
-			$sum_sq = 0;
-			$sum = 0;
-			$sum_coeff = 0;
-			for ($i = 0; $i < sizeof($allNotes); $i++) {
-				$sum_sq += $allCoeffs[$i]*($allNotes[$i])^2;
-				$sum += $allNotes[$i]*$allCoeffs[$i];
-				$sum_coeff += $allCoeffs[$i];
+			$espe = 0;
+			$variance = 0;
+			foreach ($notes_coeffs as $note_coeff) {
+				$espe += $note_coeff["note"] * ($note_coeff["coeff"]/$total);
+				$variance += ($note_coeff["note"]**2) * ($note_coeff["coeff"]/$total);
 			}
-			$sum_sq /= $sum_coeff;
-			$sum /= $sum_coeff;
-			$ecartType = sqrt($sum_sq - $sum^2);
+			$variance -= $espe**2;
+			$ecart_type = sqrt($variance);
 
 			$sum = 0;
 			$sum_coeff = 0;
@@ -653,11 +657,8 @@ Class Pronote {
 
 			sort($allNotes);
 			$notes["meta"] = array(
-				"moyenne" => $sum/$sum_coeff,
-				"mediane" => $allNotes[intval((sizeof($allNotes) - 1) / 2)],
-				"q1" => $allNotes[intval((sizeof($allNotes) - 1) / 4)],
-				"q3" => $allNotes[intval(((sizeof($allNotes) - 1) / 4) * 3)],
-				"ecartType" => $ecartType
+				"moyenne" => $espe,
+				"ecartType" => $ecart_type
 			);
 
 			if (empty($notes) && !$this->customPeriode) {
