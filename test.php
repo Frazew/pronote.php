@@ -13,7 +13,7 @@ echo "Mot de passe: ";
 $passwd = trim(fgets($stdin));
 
 $pronote = new Pronote();
-$login = $pronote->login($user, $passwd, false, $argv[1]);
+$login = $pronote->login($user, $passwd, true, $argv[1]);
 print_r($login);
 if ($login["status"] == 1) {
 	print_r($pronote->getHomePageData());
