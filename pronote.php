@@ -75,6 +75,7 @@ Class Pronote {
 	// Paramètres liés à la session courante
 	private $pronoteSession = "";
 	private $requestCount = 1;
+	private $espace = 3; //3 si eleve, 6 si eleve mobile
 
 	// Un array qui garde les paramètres liés à l'utilisateur comme son nom, sa classe etc
 	private $userData = array();
@@ -121,7 +122,7 @@ Class Pronote {
 	 * Connecte un utilisateur au serveur pronote et initie tous les paramètres. Entrypoint
 	 * @param  $user, le nom d'utilisateur
 	 * @param  $password, le mot de passe
-	 * @param  $autologin, si true, le mot de passe est un token de connexion automatique @TODO Pas encore implémenté
+	 * @param  $autologin, si true, le mot de passe est un token de connexion automatique
 	 * @param  $url, l'url du serveur auquel se connecter
 	 * @return Un array, [status, message, userData]. Si status = 0, il y a eu une erreur et message est défini, sinon status = 1 et userData est défini
 	 */
@@ -138,13 +139,19 @@ Class Pronote {
 		// On donne un User-Agent connu et à jour histoire de pas se prendre la page signalant que le navigateur n'est pas compatible
 		$this->userAgent = "Mozilla/5.0 (X11; Linux) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36 pronote.php/" . $this->version . "";
 
+		$url = $this->pronoteURL . "/eleve.html";
+		if ($autologin) {
+			$this->espace = 6;
+			$url = $this->pronoteURL . "/mobile.eleve.html";
+		}
+
 		// Requête initiale de la page pour récupérer les paramètres.
 		if (isset($DEBUG) && $DEBUG == true) echo "Premiere requete\n";
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
-		curl_setopt($ch, CURLOPT_URL, $this->pronoteURL . "/eleve.html");
+		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 		$pronotePage = curl_exec($ch);
 		curl_close($ch);
@@ -193,7 +200,8 @@ Class Pronote {
 		$this->userData = array();
 		$this->AESIV = Util::randomStr();
 
-		if ($autologin) $this->AES_key = $password;
+		$tokenpos = strpos($password, "token::");
+		if ($autologin && $tokenpos !== false && $tokenpos == 0) $this->AES_key = utf8_encode(strtolower($user) . str_replace("token::", "", $password));
 		else $this->AES_key = utf8_encode(strtolower($user) . $password);
 		
 
@@ -233,10 +241,13 @@ Class Pronote {
 		$post = array(
 			"donnees" => array(
 				"Identifiant" => $user,
-				"PourENT" => false,
-				"demandeConnexionAuto" => true
+				"PourENT" => false
 			)
 		);
+
+		$tokenpos = strpos($password, "token::");
+		if ($autologin && $tokenpos !== false && $tokenpos == 0) $post["donnees"]["enConnexionAuto"] = true;
+		elseif ($autologin) $post["donnees"]["demandeConnexionAuto"] = true;
 		$json = $this->makeRequest("Identification", $post, array("", $this->AESIV), array("", $this->AESIV), array("", $this->AESIV));
 		
 		if ($json != null) {
@@ -275,7 +286,8 @@ Class Pronote {
 					$this->AES_key = Crypto::decryptAES(trim($cle[1]), $this->AES_key, $this->AESIV, false, false, true);
 					$this->userData["nom"] = $json["donneesSec"]["donnees"]["ressource"]["L"];
 					$this->userData["code"] = $json["donneesSec"]["donnees"]["ressource"]["N"];
-					$this->userData["classe"] = $json["donneesSec"]["donnees"]["ressource"]["classeDEleve"]["L"];				
+					$this->userData["classe"] = $json["donneesSec"]["donnees"]["ressource"]["classeDEleve"]["L"];
+					if ($autologin) $this->userData["token"] = "token::" . $json["donneesSec"]["donnees"]["jetonConnexionAuto"];
 
 					if (preg_match("/<Onglet G=\"99\">.+?<\\/Onglet>/s", $json["donneesSec"]["xml"], $onglet)) {
 						if (preg_match_all("/<Periode G=\"2\" N=\"([A-Z0-9]+)\" L=\"(.*?)\"(?:|.*?)>/", $onglet[0], $periodes)) {
@@ -374,8 +386,7 @@ Class Pronote {
 
 		$numeroOrdre = Crypto::generateNumeroOrdre($this->requestCount, $AESNumeroOrdre[0], $AESNumeroOrdre[1]);
 
-		$espace = "3";
-		$url = $this->pronoteURL . "appelfonction/" . $espace . "/" . $this->pronoteSession . "/" . $numeroOrdre;
+		$url = $this->pronoteURL . "appelfonction/" . $this->espace . "/" . $this->pronoteSession . "/" . $numeroOrdre;
 		
 		$post = array();
 		$post["session"] = $this->pronoteSession;
@@ -433,6 +444,18 @@ Class Pronote {
 
 	public function getUserData() {
 		return $this->userData;
+	}
+
+	/**
+	 * Envoit une requête de présence qui empêche la connexion d'expirer.
+	 */
+	public function keepAlive() {
+		$post = array(
+			"_Signature_" => array(
+				"onglet" => 7
+			),
+		);
+		return $this->makeRequest("Presence", $post);
 	}
 
 	/**
