@@ -59,6 +59,7 @@ require_once dirname(__FILE__)."/Crypt/RSA.php";
  */
 Class Pronote {
 	// Version
+	private $pronoteVersion = "2016";
 	public $version = "3.14";
 	public $userAgent = "";
 
@@ -135,10 +136,10 @@ Class Pronote {
 		}
 		$this->pronoteURL = $url;
 		// On donne un User-Agent connu et à jour histoire de pas se prendre la page signalant que le navigateur n'est pas compatible
-		$this->userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.43 Safari/537.31 pronote.php/" . $this->version . "";
+		$this->userAgent = "Mozilla/5.0 (X11; Linux) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36 pronote.php/" . $this->version . "";
 
 		// Requête initiale de la page pour récupérer les paramètres.
-		if (isset($DEBUG) && $DEBUG = true) echo "Premiere requete\n";
+		if (isset($DEBUG) && $DEBUG == true) echo "Premiere requete\n";
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -147,8 +148,8 @@ Class Pronote {
 		curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 		$pronotePage = curl_exec($ch);
 		curl_close($ch);
-		if (isset($DEBUG) && $DEBUG = true) echo "Premiere requete terminée\n";
-
+		if (isset($DEBUG) && $DEBUG == true) echo "Premiere requete terminée\n";
+		if (isset($DEBUG) && $DEBUG == true) file_put_contents("pronote_page", $pronotePage);
 		$params = array();
 		$doc = new DOMDocument();
 		$doc->loadHTML($pronotePage);
@@ -213,7 +214,10 @@ Class Pronote {
 					"message" => "La requête des paramètres a échoué : " . $json["erreur"]
 				);
 			}
-			else $this->userData["premierePeriode"] = $json["donneesSec"]["donnees"]["General"]["dateDebutPremierCycle"]["V"];
+			else {
+				$this->userData["premierePeriode"] = $json["donneesSec"]["donnees"]["General"]["dateDebutPremierCycle"]["V"];
+				$this->pronoteVersion = $json["donneesSec"]["donnees"]["General"]["millesime"];
+			}
 		} else {
 			return array(
 				"status" => 0,
@@ -377,7 +381,7 @@ Class Pronote {
 		$post["session"] = $this->pronoteSession;
 		$post["numeroOrdre"] = $numeroOrdre;
 		$post["nom"] = $nom;
-		if (isset($DEBUG) && $DEBUG = true) echo json_encode($args, JSON_UNESCAPED_SLASHES) . "\n";
+		if (isset($DEBUG) && $DEBUG == true) echo json_encode($args, JSON_UNESCAPED_SLASHES) . "\n";
 		$args = Crypto::encryptAESWithMD5WithGzip(json_encode($args, JSON_UNESCAPED_SLASHES), $AESArgs[0], $AESArgs[1]);
 		$post["donneesSec"] = $args;
 
@@ -406,7 +410,7 @@ Class Pronote {
 
 		}
 		
-		if (isset($DEBUG) && $DEBUG = true) print_r($json);
+		if (isset($DEBUG) && $DEBUG == true) print_r($json);
 
 		if ($json != null && isset($json["Erreur"])) {
 			return array("erreur" => var_export($json["Erreur"], true));
@@ -1145,7 +1149,7 @@ Class Util {
 	 */
 	public static function randomStr($len = 16) {
 		$bytes = bin2hex(random_bytes($len));
-		if (isset($DEBUG) && $DEBUG = true) echo $bytes . "\n";
+		if (isset($DEBUG) && $DEBUG == true) echo $bytes . "\n";
 		return $bytes;
 	}
 

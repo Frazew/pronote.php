@@ -3,7 +3,7 @@
  * Script de test de la classe pronote.php. Usage: php test.php <lien>
  */
 include_once "pronote.php";
-//$DEBUG = true;
+$DEBUG = true;
 
 $stdin = fopen ("php://stdin","r");
 
