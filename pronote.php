@@ -263,9 +263,19 @@ Class Pronote {
 				/*
 				Troisième requête, on "prouve" qu'on a le bon mot de passe en décryptant la chaîne envoyée avec et en la recryptant.
 				 */
-				$post = array(
-					"xml" => ("<Authentification><Connexion G=\"0\"/><Challenge T=\"3\">" . Crypto::generateNumeroOrdre($decrypted, $this->AES_key, $this->AESIV, true) . "</Challenge></Authentification>")
-				);
+				if ($this->pronoteVersion == "2017") {
+					$post = array(
+						"donnees" => array(
+							"connexion" => 0,
+							"challenge" => Crypto::generateNumeroOrdre($decrypted, $this->AES_key, $this->AESIV, true),
+							"espace" => $this->espace
+						)
+					);
+				} else {
+					$post = array(
+						"xml" => ("<Authentification><Connexion G=\"0\"/><Challenge T=\"3\">" . Crypto::generateNumeroOrdre($decrypted, $this->AES_key, $this->AESIV, true) . "</Challenge></Authentification>")
+					);
+				}
 				$json = $this->makeRequest("Authentification", $post, array("", $this->AESIV), array("", $this->AESIV), array("", $this->AESIV));
 				if ($json != null) {
 					if (isset($json["erreur"])) {
